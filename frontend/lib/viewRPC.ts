@@ -1,7 +1,8 @@
-import { createWalletClient, createPublicClient, custom, formatEther, parseEther } from 'viem'
+import { createWalletClient, createPublicClient, custom, formatEther, parseEther, erc20Abi, formatUnits } from 'viem'
 import { SafeEventEmitterProvider } from '@web3auth/base';
 import { mainnet, sepolia, spicy, chiliz } from 'viem/chains'
 import type { IProvider } from "@web3auth/base";
+import { FanToken, fanTokenData } from './fantokendata';
 
 const getViewChain = (provider: IProvider) => {
   switch (provider.chainId) {
@@ -35,7 +36,7 @@ const getAccounts = async (provider: SafeEventEmitterProvider): Promise<any> => 
   try {
 
     const walletClient = createWalletClient({
-      chain: sepolia,
+      chain: spicy,
       transport: custom(provider)
     });
 
@@ -50,12 +51,12 @@ const getAccounts = async (provider: SafeEventEmitterProvider): Promise<any> => 
 const getBalance = async (provider: SafeEventEmitterProvider): Promise<string> => {
   try {
     const publicClient = createPublicClient({
-      chain: sepolia,
+      chain: spicy,
       transport: custom(provider)
     })
 
     const walletClient = createWalletClient({
-      chain: sepolia,
+      chain: spicy,
       transport: custom(provider)
     });
 
@@ -131,4 +132,50 @@ const signMessage = async (provider: IProvider): Promise<any> => {
   }
 }
 
-export default {getChainId, getAccounts, getBalance, sendTransaction, signMessage};
+// const getFanTokenBalances = async (provider: IProvider): Promise<Record<string, FanToken>> => {
+const getFanTokenBalances = async (provider: SafeEventEmitterProvider): Promise<Record<string, FanToken>> => {
+  try {
+    const publicClient = createPublicClient({
+      chain: spicy,
+      transport: custom(provider),
+    });
+
+    const walletClient = createWalletClient({
+      chain: spicy,
+      transport: custom(provider),
+    });
+
+    // User wallet address
+    const address = await walletClient.getAddresses();
+    console.log("viewRPC getFanTokenBalances address", address);
+
+    const assetDictionary: Record<string, FanToken> = {};
+
+    const fanTokens = fanTokenData.spicy;
+
+    for (const fanToken of fanTokens) {
+      const balance = await publicClient.readContract({
+        address: fanToken.contractAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address[0]], // user wallet add
+      });
+      console.log("# Found balance in %s for token %s of %s", address[0], fanToken.name, balance);
+      if (balance > 0) {
+        assetDictionary[fanToken.token] = {
+          name: fanToken.name,
+          balance: formatUnits(balance, Number(fanToken.decimal)),
+          decimal: fanToken.decimal,
+          token: fanToken.token,
+          contractAddress: fanToken.contractAddress,
+        };
+      }
+    }
+
+    return assetDictionary;
+  } catch (error) {
+    throw new Error("Error fetching fan token");
+  }
+};
+
+export default {getChainId, getAccounts, getBalance, sendTransaction, signMessage, getFanTokenBalances};

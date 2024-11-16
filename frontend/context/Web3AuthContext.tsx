@@ -82,13 +82,11 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
         setWeb3auth(web3auth);
 
         await web3auth.initModal();
-        
-        // added myself!
+
         setProvider(web3auth.provider);
         if (web3auth.connected) {
           setConnected(true);
 
-          // TEST POSSIBILITIES *************************
           const publicClient = createPublicClient({
             chain: spicy,
             transport: custom(privateKeyProvider)
@@ -100,7 +98,6 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
             transport: custom(privateKeyProvider)
           });
           setWalletClient(walletClient);
-          // *******************************************
         }
 
       } catch (error) {

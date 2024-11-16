@@ -1,3 +1,4 @@
+import FanTokenBalances from "@/components/FanTokenBalances";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
 
@@ -11,6 +12,8 @@ export default function Home() {
           <p className="text-lg leading-relaxed">
             Welcome to the future of sports betting, powered by artificial intelligence.
           </p>
+          <FanTokenBalances />
+          
 
           <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-6 backdrop-blur-sm">
             <h2 className="text-xl font-semibold mb-3">Why Choose RIVALZ?</h2>

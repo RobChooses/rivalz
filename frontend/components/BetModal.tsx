@@ -1,4 +1,5 @@
 import { FanToken } from "../lib/fantokendata";
+import { useState } from 'react';
 
 interface BetModalProps {
   isOpen: boolean;
@@ -7,10 +8,39 @@ interface BetModalProps {
 }
 
 const BetModal: React.FC<BetModalProps> = ({ isOpen, onClose, token }) => {
-  const handleSubmit = (e: React.FormEvent) => {
+  const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement bet creation logic
-    onClose();
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/create-bet-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          description,
+          tokenName: token.name 
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to process bet');
+      
+      const { sanitizedBet } = await response.json();
+      // Here you can either:
+      // 1. Show the sanitized bet to the user for confirmation
+      // 2. Or directly proceed with bet creation
+      console.log('Sanitized bet:', sanitizedBet);
+      
+      onClose();
+    } catch (err) {
+      setError('Failed to create bet. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -21,16 +51,22 @@ const BetModal: React.FC<BetModalProps> = ({ isOpen, onClose, token }) => {
         <h2 className="text-xl font-bold mb-4 text-white">Create a Bet for {token.name}</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p className="text-red-400 text-sm">{error}</p>
+          )}
           <div>
             <label htmlFor="betDescription" className="block text-sm font-medium text-gray-300 mb-1">
               What's your prediction?
             </label>
             <textarea
               id="betDescription"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white"
               rows={3}
               placeholder={`Example: ${token.name} will win their next match`}
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -39,14 +75,16 @@ const BetModal: React.FC<BetModalProps> = ({ isOpen, onClose, token }) => {
               type="button"
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-800 rounded-lg border border-gray-700 hover:bg-gray-700 transition-colors"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-blue-800 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
             >
-              Create Bet
+              {isSubmitting ? 'Processing...' : 'Create Bet'}
             </button>
           </div>
         </form>

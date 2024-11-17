@@ -7,6 +7,8 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage
 from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
+from langchain_community.tools import TavilySearchResults
+
 from typing import List, Dict
 from datetime import datetime
 
@@ -32,8 +34,15 @@ def init_agent():
     # Get all available tools
     cdp_tools = cdp_toolkit.get_tools()
 
+
     # Add Tavily search to get real world news data
-    search_tool = load_tools(["tavily-search"])
+    search_tool = [TavilySearchResults(
+        max_results=5,
+        search_depth="advanced",
+        include_answer=True,
+        include_raw_content=True,
+        include_images=False
+    )]
     all_tools = cdp_tools + search_tool
 
     # Create the agent
@@ -53,21 +62,24 @@ def ask_agent(question: str, agent_executor):
             print(chunk["tools"]["messages"][0].content)
         print("-------------------")
 
-def generate_bet_events(team_name: str, agent_executor) -> List[Dict]:
+def generate_bet_events(description: str, fan_token_name: str) -> List[Dict]:
+    agent_executor = init_agent()
     # Construct search query for team-related betting and positive events
     search_query = f"""
-    Latest news about {team_name} related to:
+    Latest news about {fan_token_name} related to:
     - Upcoming matches or tournaments
     - Team performance and achievements
     - Player transfers or signings
     - Fan engagement opportunities
     """
+
+
+
+    todays_date = datetime.now()
     
     # Use the search tool to find relevant events
     search_prompt = f"""
-    Search for recent events and news about {team_name} that could be interesting for fans to bet on.
-    Focus on positive news and upcoming events. Format the response as structured data with event title,
-    description, and date.
+    The following in brackets [{description}] is a betting event that needs to be attested. It is in free-form and needs to be structured. Use search tools to gather all the information needed to create a bet that can be attested to. It must be a single event after today's date of {todays_date} and be related to {fan_token_name}. If it is empty or not provided or the betting event islimited, create a fun bet on real life future events for that {fan_token_name} but only focus on positive news and upcoming events. Format the response as structured data in the following json schema of description: string, event_title: string, event_datetime: datetime
     """
     
     events = []

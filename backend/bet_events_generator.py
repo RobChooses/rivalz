@@ -10,7 +10,7 @@ from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain_community.tools import TavilySearchResults
 
 from typing import List, Dict
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 # Load environment variables from .env file
@@ -63,43 +63,64 @@ def ask_agent(question: str, agent_executor):
             print(chunk["tools"]["messages"][0].content)
         print("-------------------")
 
-def generate_bet_events(description: str, fan_token_name: str) -> List[Dict]:
-    agent_executor = init_agent()
-    todays_date = datetime.now()
-    
-    # Update the search prompt to request JSON format specifically
-    search_prompt = f"""
-    The following in brackets [{description}] is a betting event that needs to be attested. It is in free-form and needs to be structured. Use search tools to gather all the information needed to create a bet that can be attested to. It must be a single event after today's date of {todays_date} and be related to {fan_token_name}. If it is empty or not provided or the betting event is limited, create a fun bet on real life future events for that {fan_token_name} but only focus on positive news and upcoming events.
-
-    Return ONLY a JSON object with the following structure, and nothing else:
-    {{
-        "description": "clear description of the bet",
-        "event_title": "short title of the event",
-        "event_datetime": "YYYY-MM-DD HH:MM:SS"
-    }}
-    """
-    
+def generate_bet_events(description: str, fan_token_name: str) -> dict:
     try:
+        agent_executor = init_agent()
+        todays_date = datetime.now()
+        
+        search_prompt = f"""
+        The following in brackets [{description}] is a betting event that needs to be attested. It is in free-form and needs to be structured. Use search tools to gather all the information needed to create a bet that can be attested to. It must be a single event after today's date of {todays_date} and be related to {fan_token_name}. If it is empty or not provided or the betting event is limited, create a fun bet on real life future events for that {fan_token_name} but only focus on positive news and upcoming events.
+
+        Return ONLY a JSON object with the following structure, and nothing else:
+        {{
+            "description": "clear description of the bet",
+            "event_title": "short title of the event",
+            "event_datetime": "YYYY-MM-DD HH:MM:SS"
+        }}
+        """
+        
         # Use the agent to perform the search and process results
         response = ask_agent(search_prompt, agent_executor)
         
+        # Check if response is None or empty
+        if not response:
+            print(f"Received empty response from agent for {fan_token_name}")
+            return create_default_bet(fan_token_name)
+            
         # Parse the response to extract just the JSON
         # Find the first { and last } to extract the JSON string
         start_idx = response.find('{')
         end_idx = response.rfind('}') + 1
-        print('****1')
+        
         if start_idx != -1 and end_idx != -1:
             json_str = response[start_idx:end_idx]
-            event = json.loads(json_str)
-            print('****2')
-            return event
+            try:
+                event = json.loads(json_str)
+                # Validate the required fields are present
+                if all(key in event for key in ['description', 'event_title', 'event_datetime']):
+                    return event
+                else:
+                    print(f"Missing required fields in response for {fan_token_name}")
+                    return create_default_bet(fan_token_name)
+            except json.JSONDecodeError:
+                print(f"Invalid JSON in response for {fan_token_name}")
+                return create_default_bet(fan_token_name)
         else:
             print(f"No valid JSON found in response for {fan_token_name}")
-            return {}
+            return create_default_bet(fan_token_name)
             
     except Exception as e:
         print(f"Error generating bet events: {str(e)}")
-        return {}
+        return create_default_bet(fan_token_name)
+
+def create_default_bet(fan_token_name: str) -> dict:
+    """Create a default bet when the AI response is invalid"""
+    future_date = datetime.now() + timedelta(days=7)  # Set to 7 days in the future
+    return {
+        "description": f"{fan_token_name} will have a positive community engagement event in the next week",
+        "event_title": f"{fan_token_name} Community Event",
+        "event_datetime": future_date.strftime("%Y-%m-%d %H:%M:%S")
+    }
 
 # Example usage:
 if __name__ == "__main__":

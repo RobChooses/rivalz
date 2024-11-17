@@ -7,11 +7,17 @@ interface BetModalProps {
   token: FanToken;
 }
 
+interface SanitizedBet {
+  description: string;
+  event_title: string;
+  event_datetime: string;
+}
+
 const BetModal: React.FC<BetModalProps> = ({ isOpen, onClose, token }) => {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [sanitizedBet, setSanitizedBet] = useState<string | null>(null);
+  const [sanitizedBet, setSanitizedBet] = useState<SanitizedBet | null>(null);
   const [step, setStep] = useState<'input' | 'confirm'>('input');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,7 +38,10 @@ const BetModal: React.FC<BetModalProps> = ({ isOpen, onClose, token }) => {
       if (!response.ok) throw new Error('Failed to process bet');
       
       const data = await response.json();
-      console.log('Sanitized bet events:', data);
+      if (!data.events || Object.keys(data.events).length === 0) {
+        throw new Error('Invalid bet response received');
+      }
+      
       setSanitizedBet(data.events);
       setStep('confirm');
     } catch (err) {
@@ -112,14 +121,36 @@ const BetModal: React.FC<BetModalProps> = ({ isOpen, onClose, token }) => {
               </p>
             </div>
 
-            <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">
-                Sanitized bet description:
-              </p>
-              <p className="text-white bg-gray-800 rounded-lg p-3">
-                {sanitizedBet}
-              </p>
-            </div>
+            {sanitizedBet && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-300 mb-2">
+                    Event Title:
+                  </p>
+                  <p className="text-white bg-gray-800 rounded-lg p-3">
+                    {sanitizedBet.event_title}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-300 mb-2">
+                    Sanitized Description:
+                  </p>
+                  <p className="text-white bg-gray-800 rounded-lg p-3">
+                    {sanitizedBet.description}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-300 mb-2">
+                    Event Date:
+                  </p>
+                  <p className="text-white bg-gray-800 rounded-lg p-3">
+                    {new Date(sanitizedBet.event_datetime).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {error && (
               <p className="text-red-400 text-sm">{error}</p>

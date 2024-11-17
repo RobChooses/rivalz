@@ -3,6 +3,7 @@ import { SafeEventEmitterProvider } from '@web3auth/base';
 import { mainnet, sepolia, spicy, chiliz } from 'viem/chains'
 import type { IProvider } from "@web3auth/base";
 import { FanToken, fanTokenData } from './fantokendata';
+import BettingEventsABI from '../contracts/BettingEvents.json';
 
 const getViewChain = (provider: IProvider) => {
   switch (provider.chainId) {
@@ -178,4 +179,96 @@ const getFanTokenBalances = async (provider: SafeEventEmitterProvider): Promise<
   }
 };
 
-export default {getChainId, getAccounts, getBalance, sendTransaction, signMessage, getFanTokenBalances};
+const BETTING_CONTRACT_ADDRESS = "";
+
+const RPC = {
+  getChainId,
+  getAccounts,
+  getBalance,
+  sendTransaction,
+  signMessage,
+  getFanTokenBalances,
+
+  createBettingEvent: async (
+    provider: any,
+    tokenAddress: string,
+    amount: string,
+    eventDescription: string
+  ) => {
+    try {
+      const bettingContract = new ethers.Contract(
+        BETTING_CONTRACT_ADDRESS,
+        BettingEventsABI,
+        provider
+      );
+
+      // First approve the token spending
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        ['function approve(address spender, uint256 amount) public returns (bool)'],
+        provider
+      );
+
+      const approveTx = await tokenContract.approve(
+        BETTING_CONTRACT_ADDRESS,
+        ethers.parseUnits(amount, 18)
+      );
+      await approveTx.wait();
+
+      // Create the bet
+      const tx = await bettingContract.createBet(
+        tokenAddress,
+        ethers.parseUnits(amount, 18),
+        eventDescription
+      );
+      const receipt = await tx.wait();
+      
+      // Get the BetCreated event from the receipt
+      const betCreatedEvent = receipt.events?.find(
+        (event: any) => event.event === 'BetCreated'
+      );
+      
+      return {
+        betId: betCreatedEvent?.args?.betId.toString(),
+        success: true
+      };
+    } catch (error) {
+      console.error('Error creating betting event:', error);
+      throw error;
+    }
+  },
+
+  getUserBets: async (provider: any, userAddress: string) => {
+    try {
+      const bettingContract = new ethers.Contract(
+        BETTING_CONTRACT_ADDRESS,
+        BettingEventsABI,
+        provider
+      );
+
+      const betIds = await bettingContract.getBetsByAddress(userAddress);
+      const bets = await Promise.all(
+        betIds.map(async (id: number) => {
+          const bet = await bettingContract.getBetDetails(id);
+          return {
+            id,
+            bettor: bet.bettor,
+            tokenAddress: bet.tokenAddress,
+            amount: ethers.formatUnits(bet.amount, 18),
+            eventDescription: bet.eventDescription,
+            timestamp: new Date(Number(bet.timestamp) * 1000),
+            isAttested: bet.isAttested,
+            isClaimed: bet.isClaimed
+          };
+        })
+      );
+
+      return bets;
+    } catch (error) {
+      console.error('Error fetching user bets:', error);
+      throw error;
+    }
+  }
+};
+
+export default RPC;

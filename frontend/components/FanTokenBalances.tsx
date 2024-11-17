@@ -8,6 +8,7 @@ import { IProvider, WEB3AUTH_NETWORK } from "@web3auth/base";
 import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
 import { Web3Auth } from "@web3auth/modal";
 import { useWeb3Auth } from "@/context/Web3AuthContext";
+import BetModal from "./BetModal";
 
 const FanTokenBalances: React.FC = () => {
   const { connected, provider, publicClient, walletClient } = useWeb3Auth();
@@ -16,38 +17,12 @@ const FanTokenBalances: React.FC = () => {
   const [assetDictionary, setAssetDictionary] = useState<Record<string, FanToken>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedToken, setSelectedToken] = useState<FanToken | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     getFanTokenBalances();
   }, [provider]);
-
-  const createBetEvents = async (tokens: Record<string, FanToken>) => {
-    try {
-      const tokensWithBalance = Object.values(tokens)
-        .filter(token => Number(token.balance) > 0)
-        .map(token => token.name);
-
-      const response = await fetch('http://localhost:5000/api/create-bet-events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          teamNames: tokensWithBalance
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create bet events');
-      }
-
-      const data = await response.json();
-      console.log('Bet events created:', data);
-    } catch (err) {
-      console.error('Error creating bet events:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create bet events');
-    }
-  };
 
   const getFanTokenBalances = async () => {
     setIsLoading(true);
@@ -66,9 +41,6 @@ const FanTokenBalances: React.FC = () => {
       const fanTokenBalances = await RPC.getFanTokenBalances(provider);
       setAssetDictionary(fanTokenBalances);
 
-      if (Object.keys(fanTokenBalances).length > 0) {
-        await createBetEvents(fanTokenBalances);
-      }
     } catch (err) {
       console.error('Error fetching fan token balances:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch fan token balances');
@@ -96,7 +68,11 @@ const FanTokenBalances: React.FC = () => {
       {connected && Object.entries(assetDictionary).map(([key, token]) => (
         <div 
           key={key}
-          className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-6 backdrop-blur-sm border border-gray-700/30 hover:border-gray-600/50 transition-all"
+          className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-6 backdrop-blur-sm border border-gray-700/30 hover:border-gray-600/50 transition-all cursor-pointer"
+          onClick={() => {
+            setSelectedToken(token);
+            setIsModalOpen(true);
+          }}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
@@ -136,6 +112,16 @@ const FanTokenBalances: React.FC = () => {
           </div>
         </div>
       ))}
+      {selectedToken && (
+        <BetModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedToken(null);
+          }}
+          token={selectedToken}
+        />
+      )}
       {Object.keys(assetDictionary).length === 0 && connected && (
         <div className="col-span-full text-center py-8 text-gray-400">
           No fan tokens found in your wallet

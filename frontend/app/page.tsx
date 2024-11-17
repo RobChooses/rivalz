@@ -20,19 +20,15 @@ export default function Home() {
             <ul className="space-y-3 text-left">
               <li className="flex items-center">
                 <span className="mr-2">🤖</span>
-                <span>AI-powered predictions with proven accuracy</span>
+                <span>Make ANY bet or prediction on your team against your rivals</span>
               </li>
               <li className="flex items-center">
                 <span className="mr-2">⚡</span>
-                <span>Real-time odds updates and market analysis</span>
+                <span>Create fun bets without limits</span>
               </li>
               <li className="flex items-center">
                 <span className="mr-2">🔒</span>
                 <span>Secure blockchain transactions using Web3 technology</span>
-              </li>
-              <li className="flex items-center">
-                <span className="mr-2">📊</span>
-                <span>Detailed analytics and performance tracking</span>
               </li>
             </ul>
           </div>

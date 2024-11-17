@@ -43,6 +43,9 @@ def create_bet_events():
         # Generate bet events
         created_events = generate_bet_events(description, token_name)
 
+        # Log the generated events
+        print(f"Generated events: {created_events}")
+
         return jsonify({
             'success': True,
             'events': created_events

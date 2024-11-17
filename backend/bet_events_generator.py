@@ -11,6 +11,7 @@ from langchain_community.tools import TavilySearchResults
 
 from typing import List, Dict
 from datetime import datetime
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -64,37 +65,41 @@ def ask_agent(question: str, agent_executor):
 
 def generate_bet_events(description: str, fan_token_name: str) -> List[Dict]:
     agent_executor = init_agent()
-    # Construct search query for team-related betting and positive events
-    search_query = f"""
-    Latest news about {fan_token_name} related to:
-    - Upcoming matches or tournaments
-    - Team performance and achievements
-    - Player transfers or signings
-    - Fan engagement opportunities
-    """
-
-
-
     todays_date = datetime.now()
     
-    # Use the search tool to find relevant events
+    # Update the search prompt to request JSON format specifically
     search_prompt = f"""
-    The following in brackets [{description}] is a betting event that needs to be attested. It is in free-form and needs to be structured. Use search tools to gather all the information needed to create a bet that can be attested to. It must be a single event after today's date of {todays_date} and be related to {fan_token_name}. If it is empty or not provided or the betting event islimited, create a fun bet on real life future events for that {fan_token_name} but only focus on positive news and upcoming events. Format the response as structured data in the following json schema of description: string, event_title: string, event_datetime: datetime
+    The following in brackets [{description}] is a betting event that needs to be attested. It is in free-form and needs to be structured. Use search tools to gather all the information needed to create a bet that can be attested to. It must be a single event after today's date of {todays_date} and be related to {fan_token_name}. If it is empty or not provided or the betting event is limited, create a fun bet on real life future events for that {fan_token_name} but only focus on positive news and upcoming events.
+
+    Return ONLY a JSON object with the following structure, and nothing else:
+    {{
+        "description": "clear description of the bet",
+        "event_title": "short title of the event",
+        "event_datetime": "YYYY-MM-DD HH:MM:SS"
+    }}
     """
     
-    events = []
     try:
         # Use the agent to perform the search and process results
         response = ask_agent(search_prompt, agent_executor)
         
-        # Note: You might want to process and structure the response here
-        # depending on how you want to use the events data
-        
-        return events
-        
+        # Parse the response to extract just the JSON
+        # Find the first { and last } to extract the JSON string
+        start_idx = response.find('{')
+        end_idx = response.rfind('}') + 1
+        print('****1')
+        if start_idx != -1 and end_idx != -1:
+            json_str = response[start_idx:end_idx]
+            event = json.loads(json_str)
+            print('****2')
+            return event
+        else:
+            print(f"No valid JSON found in response for {fan_token_name}")
+            return {}
+            
     except Exception as e:
-        print(f"Error generating bet events for {team_name}: {str(e)}")
-        return []
+        print(f"Error generating bet events: {str(e)}")
+        return {}
 
 # Example usage:
 if __name__ == "__main__":
